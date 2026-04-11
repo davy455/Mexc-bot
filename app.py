@@ -1,0 +1,55 @@
+from flask import Flask, request, jsonify
+import requests
+import time
+import hmac
+import hashlib
+
+app = Flask(__name__)
+
+API_KEY = "YOUR_MEXC_API_KEY"
+API_SECRET = "YOUR_MEXC_SECRET"
+
+BASE_URL = "https://contract.mexc.com"
+
+def sign(params):
+    query = "&".join([f"{k}={v}" for k, v in params.items()])
+    return hmac.new(API_SECRET.encode(), query.encode(), hashlib.sha256).hexdigest()
+
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.json
+    
+    side = data.get("side")
+    symbol = "AUX_USDT"
+    
+    if side == "buy":
+        order_side = 1
+    elif side == "sell":
+        order_side = 2
+    else:
+        return jsonify({"error": "invalid side"})
+    
+    params = {
+        "symbol": symbol,
+        "price": 0,
+        "vol": 1,
+        "side": order_side,
+        "type": 1,
+        "openType": 1,
+        "leverage": 5,
+        "externalOid": str(int(time.time()))
+    }
+    
+    params["sign"] = sign(params)
+    
+    headers = {
+        "ApiKey": API_KEY
+    }
+    
+    r = requests.post(BASE_URL + "/api/v1/private/order/submit", json=params, headers=headers)
+    
+    return jsonify(r.json())
+
+@app.route('/')
+def home():
+    return "Bot running 🚀"

@@ -15,20 +15,24 @@ def sign(params):
     query = "&".join([f"{k}={v}" for k, v in params.items()])
     return hmac.new(API_SECRET.encode(), query.encode(), hashlib.sha256).hexdigest()
 
+@app.route('/')
+def home():
+    return "Bot running 🚀"
+
 @app.route('/webhook', methods=['POST'])
 def webhook():
     data = request.json
-    
+
     side = data.get("side")
     symbol = "AUX_USDT"
-    
+
     if side == "buy":
         order_side = 1
     elif side == "sell":
         order_side = 2
     else:
         return jsonify({"error": "invalid side"})
-    
+
     params = {
         "symbol": symbol,
         "price": 0,
@@ -39,17 +43,16 @@ def webhook():
         "leverage": 5,
         "externalOid": str(int(time.time()))
     }
-    
+
     params["sign"] = sign(params)
-    
+
     headers = {
         "ApiKey": API_KEY
     }
-    
+
     r = requests.post(BASE_URL + "/api/v1/private/order/submit", json=params, headers=headers)
-    
+
     return jsonify(r.json())
 
-@app.route('/')
-def home():
-    return "Bot running 🚀"
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)

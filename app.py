@@ -82,20 +82,22 @@ def webhook():
     print("MEXC status:", response.status_code)
     print("MEXC response text:", response.text)
 
+
+    print("TradingView data:", data)
+    print("MEXC status:", response.status_code)
+    print("MEXC response text:", response.text)
+
     try:
         mexc_json = response.json()
-        return jsonify({
-            "ok": True,
-            "status_code": response.status_code,
-            "mexc_response": mexc_json
-        }), response.status_code
     except ValueError:
-        return jsonify({
-            "ok": False,
-            "status_code": response.status_code,
-            "mexc_response_text": response.text
-        }), response.status_code
+        mexc_json = None
 
+    return jsonify({
+        "ok": response.ok,
+        "status_code": response.status_code,
+        "mexc_response": mexc_json,
+        "mexc_response_text": response.text
+    }), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)

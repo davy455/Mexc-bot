@@ -28,7 +28,6 @@ def webhook():
 
     if data is None:
         raw_body = request.get_data(as_text=True)
-        print("No JSON received from TradingView. Raw body:", raw_body)
         return jsonify({
             "error": "No JSON received from TradingView",
             "raw_body": raw_body
@@ -72,20 +71,10 @@ def webhook():
             timeout=15
         )
     except requests.RequestException as e:
-        print("Request to MEXC failed:", str(e))
         return jsonify({
-            "error": "Request to MEXC failed",
+            "step": "request_to_mexc_failed",
             "details": str(e)
         }), 500
-
-    print("TradingView data:", data)
-    print("MEXC status:", response.status_code)
-    print("MEXC response text:", response.text)
-
-
-    print("TradingView data:", data)
-    print("MEXC status:", response.status_code)
-    print("MEXC response text:", response.text)
 
     try:
         mexc_json = response.json()
@@ -93,11 +82,14 @@ def webhook():
         mexc_json = None
 
     return jsonify({
-        "ok": response.ok,
-        "status_code": response.status_code,
-        "mexc_response": mexc_json,
-        "mexc_response_text": response.text
+        "step": "mexc_response",
+        "tradingview_data": data,
+        "sent_params": params,
+        "mexc_status_code": response.status_code,
+        "mexc_json": mexc_json,
+        "mexc_text": response.text
     }), 200
+
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)

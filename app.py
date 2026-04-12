@@ -24,7 +24,7 @@ def webhook():
     data = request.json
 
     side = data.get("side")
-    symbol = "AUX_USDT"
+    symbol = "XAUT_USDT"
 
     if side == "buy":
         order_side = 1

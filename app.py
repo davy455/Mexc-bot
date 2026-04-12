@@ -6,8 +6,8 @@ import hashlib
 
 app = Flask(__name__)
 
-API_KEY = "JOUW_MEXC_API_KEY"
-API_SECRET = "JOUW_MEXC_SECRET"
+API_KEY = "mx0vglUtlgpfcDt94u"
+API_SECRET = "7c377ce3bfd943d3a6dd2bd66561d423"
 
 BASE_URL = "https://contract.mexc.com"
 

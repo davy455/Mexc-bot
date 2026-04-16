@@ -13,8 +13,8 @@ API_SECRET = "15d9c38c65fd4062afaab277f07ad63d"
 BASE_URL = "https://contract.mexc.com"
 
 
-def make_signature(access_key: str, secret_key: str, req_time: str, request_param: str) -> str:
-    payload = f"{access_key}{req_time}{request_param}"
+def make_signature(api_key, secret_key, req_time, request_param):
+    payload = f"{api_key}{req_time}{request_param}"
     return hmac.new(
         secret_key.encode("utf-8"),
         payload.encode("utf-8"),
@@ -33,25 +33,21 @@ def webhook():
 
     if data is None:
         return jsonify({
-            "error": "No JSON received from TradingView",
-            "raw_body": request.get_data(as_text=True)
+            "error": "No JSON received",
+            "raw": request.get_data(as_text=True)
         }), 400
 
     side = data.get("side")
-    symbol = "XAUT_USDT"
 
     if side == "buy":
         order_side = 1
     elif side == "sell":
         order_side = 2
     else:
-        return jsonify({
-            "error": "invalid side",
-            "received_side": side
-        }), 400
+        return jsonify({"error": "Invalid side"}), 400
 
     params = {
-        "symbol": symbol,
+        "symbol": "XAUT_USDT",
         "price": 0,
         "vol": 1,
         "side": order_side,
@@ -60,61 +56,38 @@ def webhook():
         "leverage": 5,
         "externalOid": str(int(time.time()))
     }
-request_param = json.dumps(params)
-req_time = str(int(time.time() * 1000))
-signature = make_signature(API_KEY, API_SECRET, req_time, request_param)
 
-headers = {
-    "Content-Type": "application/json",
-    "ApiKey": API_KEY,
-    "Request-Time": req_time,
-    "Signature": signature,
-}
-
-response = requests.post(
-    f"{BASE_URL}/api/v1/private/order/submit",
-    json=params,  # ✅ BELANGRIJK
-    headers=headers,
-    timeout=15
-)
-
+    request_param = json.dumps(params)
+    req_time = str(int(time.time() * 1000))
+    signature = make_signature(API_KEY, API_SECRET, req_time, request_param)
 
     headers = {
         "Content-Type": "application/json",
         "ApiKey": API_KEY,
         "Request-Time": req_time,
-        "Signature": signature,
+        "Signature": signature
     }
 
     try:
         response = requests.post(
-            f"{BASE_URL}/api/v1/private/order/submit",
-            data=request_param,
+            BASE_URL + "/api/v1/private/order/submit",
+            json=params,
             headers=headers,
             timeout=15
         )
-    except requests.RequestException as e:
-        print("REQUEST ERROR:", str(e), flush=True)
+
+        print("TradingView:", data, flush=True)
+        print("STATUS:", response.status_code, flush=True)
+        print("RESPONSE:", response.text, flush=True)
+
         return jsonify({
-            "step": "request_to_mexc_failed",
-            "details": str(e)
-        }), 500
+            "status": response.status_code,
+            "response": response.text
+        })
 
-    try:
-        mexc_json = response.json()
-    except ValueError:
-        mexc_json = None
-
-    print("TradingView data:", data, flush=True)
-    print("MEXC status:", response.status_code, flush=True)
-    print("MEXC response text:", response.text, flush=True)
-
-    return jsonify({
-        "ok": response.ok,
-        "status_code": response.status_code,
-        "mexc_json": mexc_json,
-        "mexc_text": response.text
-    }), 200
+    except Exception as e:
+        print("ERROR:", str(e), flush=True)
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

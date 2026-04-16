@@ -3,7 +3,6 @@ import requests
 import time
 import hmac
 import hashlib
-import json
 
 app = Flask(__name__)
 
@@ -13,13 +12,9 @@ API_SECRET = "15d9c38c65fd4062afaab277f07ad63d"
 BASE_URL = "https://contract.mexc.com"
 
 
-def make_signature(api_key, secret_key, req_time, request_param):
-    payload = f"{api_key}{req_time}{request_param}"
-    return hmac.new(
-        secret_key.encode("utf-8"),
-        payload.encode("utf-8"),
-        hashlib.sha256
-    ).hexdigest()
+def sign(params):
+    query_string = "&".join([f"{k}={params[k]}" for k in sorted(params)])
+    return hmac.new(API_SECRET.encode(), query_string.encode(), hashlib.sha256).hexdigest()
 
 
 @app.route("/")
@@ -29,65 +24,51 @@ def home():
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    data = request.get_json(silent=True)
+    data = request.get_json()
 
-    if data is None:
-        return jsonify({
-            "error": "No JSON received",
-            "raw": request.get_data(as_text=True)
-        }), 400
+    print("TradingView:", data)
 
     side = data.get("side")
 
     if side == "buy":
-        order_side = 1
+        side_value = 1
     elif side == "sell":
-        order_side = 2
+        side_value = 2
     else:
-        return jsonify({"error": "Invalid side"}), 400
+        return jsonify({"error": "invalid side"}), 400
 
     params = {
         "symbol": "XAUT_USDT",
         "price": 0,
         "vol": 1,
-        "side": order_side,
-        "type": 1,
+        "side": side_value,
+        "type": 5,  # ✅ MARKET ORDER (BELANGRIJK)
         "openType": 1,
         "leverage": 5,
-        "externalOid": str(int(time.time()))
+        "externalOid": str(int(time.time() * 1000)),
+        "timestamp": int(time.time() * 1000)
     }
 
-    request_param = json.dumps(params)
-    req_time = str(int(time.time() * 1000))
-    signature = make_signature(API_KEY, API_SECRET, req_time, request_param)
+    params["sign"] = sign(params)
 
     headers = {
-        "Content-Type": "application/json",
         "ApiKey": API_KEY,
-        "Request-Time": req_time,
-        "Signature": signature
+        "Content-Type": "application/json"
     }
 
-    try:
-        response = requests.post(
-            BASE_URL + "/api/v1/private/order/submit",
-            json=params,
-            headers=headers,
-            timeout=15
-        )
+    response = requests.post(
+        BASE_URL + "/api/v1/private/order/submit",
+        json=params,
+        headers=headers
+    )
 
-        print("TradingView:", data, flush=True)
-        print("STATUS:", response.status_code, flush=True)
-        print("RESPONSE:", response.text, flush=True)
+    print("STATUS:", response.status_code)
+    print("RESPONSE:", response.text)
 
-        return jsonify({
-            "status": response.status_code,
-            "response": response.text
-        })
-
-    except Exception as e:
-        print("ERROR:", str(e), flush=True)
-        return jsonify({"error": str(e)}), 500
+    return jsonify({
+        "status": response.status_code,
+        "response": response.text
+    })
 
 
 if __name__ == "__main__":

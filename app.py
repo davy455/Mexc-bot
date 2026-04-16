@@ -60,10 +60,24 @@ def webhook():
         "leverage": 5,
         "externalOid": str(int(time.time()))
     }
+request_param = json.dumps(params)
+req_time = str(int(time.time() * 1000))
+signature = make_signature(API_KEY, API_SECRET, req_time, request_param)
 
-    request_param = json.dumps(params, separators=(",", ":"), ensure_ascii=False)
-    req_time = str(int(time.time() * 1000))
-    signature = make_signature(API_KEY, API_SECRET, req_time, request_param)
+headers = {
+    "Content-Type": "application/json",
+    "ApiKey": API_KEY,
+    "Request-Time": req_time,
+    "Signature": signature,
+}
+
+response = requests.post(
+    f"{BASE_URL}/api/v1/private/order/submit",
+    json=params,  # ✅ BELANGRIJK
+    headers=headers,
+    timeout=15
+)
+
 
     headers = {
         "Content-Type": "application/json",

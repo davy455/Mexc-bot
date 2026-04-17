@@ -10,7 +10,7 @@ app = Flask(__name__)
 API_KEY = "mx0vglgeq1D2IaxdFg"
 API_SECRET = "c448ac4519fc41928aa9ae7e16f786c9"
 
-BASE_URL = "https://contract.mexc.com"
+BASE_URL = "https://api.mexc.com"
 
 
 def sign(params):

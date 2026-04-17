@@ -4,13 +4,14 @@ import time
 import hmac
 import hashlib
 import json
+import os
 
 app = Flask(__name__)
 
-API_KEY = "mx0vglgeq1D2IaxdFg"
+API_KEY = "mx0vglgeq1D2IaxdFgY"
 API_SECRET = "c448ac4519fc41928aa9ae7e16f786c9"
 
-BASE_URL = "https://api.mexc.com"
+BASE_URL = "https://contract.mexc.com"
 
 
 def sign(params):
@@ -91,4 +92,5 @@ def webhook():
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=10000)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)

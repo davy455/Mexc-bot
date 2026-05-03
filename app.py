@@ -1,96 +1,61 @@
-from flask import Flask, request, jsonify
-import requests
-import time
-import hmac
-import hashlib
-import json
-import os
+import base64
 
-app = Flask(__name__)
+OKX_API_KEY = os.environ.get("OKX_API_KEY")
+OKX_SECRET = os.environ.get("OKX_SECRET")
+OKX_PASSPHRASE = os.environ.get("OKX_PASSPHRASE")
 
-API_KEY = "mx0vglgeq1D2IaxdFgY"
-API_SECRET = "c448ac4519fc41928aa9ae7e16f786c9"
+OKX_URL = "https://www.okx.com"
 
-BASE_URL = "https://contract.mexc.com"
-
-
-def sign(params):
-    query_string = "&".join([f"{k}={params[k]}" for k in sorted(params)])
-    return hmac.new(
-        API_SECRET.encode(),
-        query_string.encode(),
+def okx_sign(timestamp, method, request_path, body):
+    message = f"{timestamp}{method}{request_path}{body}"
+    mac = hmac.new(
+        OKX_SECRET.encode(),
+        message.encode(),
         hashlib.sha256
-    ).hexdigest()
-
-
-@app.route("/")
-def home():
-    return "Bot running 🚀"
+    )
+    return base64.b64encode(mac.digest()).decode()
 
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    data = request.get_json(silent=True)
-
-    if data is None:
-        raw = request.get_data(as_text=True)
-        print("RAW DATA:", raw, flush=True)
-        try:
-            data = json.loads(raw)
-        except Exception:
-            return jsonify({"error": "invalid json", "raw": raw}), 400
-
-    print("TradingView:", data, flush=True)
+    data = request.get_json()
+    print("DATA:", data, flush=True)
 
     side = data.get("side")
 
     if side == "buy":
-        side_value = 1
+        okx_side = "buy"
     elif side == "sell":
-        side_value = 2
+        okx_side = "sell"
     else:
         return jsonify({"error": "invalid side"}), 400
 
-    params = {
-        "symbol": "XAUT_USDT",
-        "price": 0,
-        "vol": 1,
-        "side": side_value,
-        "type": 5,
-        "openType": 1,
-        "leverage": 5,
-        "externalOid": str(int(time.time() * 1000)),
-        "timestamp": int(time.time() * 1000)
-    }
+    body = json.dumps({
+        "instId": "BTC-USDT-SWAP",
+        "tdMode": "isolated",
+        "side": okx_side,
+        "ordType": "market",
+        "sz": "1"
+    })
 
-    params["sign"] = sign(params)
+    timestamp = str(time.time())
+
+    sign = okx_sign(timestamp, "POST", "/api/v5/trade/order", body)
 
     headers = {
-        "ApiKey": API_KEY,
+        "OK-ACCESS-KEY": OKX_API_KEY,
+        "OK-ACCESS-SIGN": sign,
+        "OK-ACCESS-TIMESTAMP": timestamp,
+        "OK-ACCESS-PASSPHRASE": OKX_PASSPHRASE,
         "Content-Type": "application/json"
     }
 
-    try:
-        response = requests.post(
-            BASE_URL + "/api/v1/private/order/submit",
-            json=params,
-            headers=headers,
-            timeout=15
-        )
+    response = requests.post(
+        OKX_URL + "/api/v5/trade/order",
+        headers=headers,
+        data=body
+    )
 
-        print("STATUS:", response.status_code, flush=True)
-        print("RESPONSE:", response.text, flush=True)
+    print("OKX:", response.text, flush=True)
 
-        return jsonify({
-            "status": response.status_code,
-            "response": response.text
-        }), 200
-
-    except Exception as e:
-        print("ERROR:", str(e), flush=True)
-        return jsonify({"error": str(e)}), 500
-
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    return jsonify({"okx": response.text})
